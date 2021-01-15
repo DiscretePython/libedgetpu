@@ -186,7 +186,8 @@ util::Status KernelRegisters::Write(uint64 offset, uint64 value) {
   }
 
   ASSIGN_OR_RETURN(auto mmap_register, GetMappedOffset(offset, sizeof(uint64)));
-  *reinterpret_cast<uint64*>(mmap_register) = value;
+  *reinterpret_cast<uint32*>(mmap_register) = value;
+  *(reinterpret_cast<uint32*>(mmap_register) + 1) = value >> 32;
   VLOG(5) << StringPrintf(
       "Write: offset = 0x%016llx, value = 0x%016llx",
       static_cast<unsigned long long>(offset),  // NOLINT(runtime/int)
@@ -207,11 +208,31 @@ util::StatusOr<uint64> KernelRegisters::Read(uint64 offset) {
   }
 
   ASSIGN_OR_RETURN(auto mmap_register, GetMappedOffset(offset, sizeof(uint64)));
-  uint64 value = *reinterpret_cast<uint64*>(mmap_register);
+#ifdef DO_16BIT_ACCESSES
+  uint16 w0 = *reinterpret_cast<uint16*>(mmap_register);
+  uint16 w1 = *(reinterpret_cast<uint16*>(mmap_register) + 1);
+  uint16 w2 = *(reinterpret_cast<uint16*>(mmap_register) + 2);
+  uint16 w3 = *(reinterpret_cast<uint16*>(mmap_register) + 3);
+  uint64 value = w0 + ((uint64)w1 << 16) + ((uint64)w2 << 32) + ((uint64)w3 << 48);
   VLOG(5) << StringPrintf(
-      "Read: offset = 0x%016llx, value: = 0x%016llx",
+      "Read: offset = 0x%016llx, value: = 0x%016llx, w0=0x%04lx, w1=0x%04lx, w2=0x%04lx, w3=0x%04lx",
       static_cast<unsigned long long>(offset),  // NOLINT(runtime/int)
-      static_cast<unsigned long long>(value));  // NOLINT(runtime/int)
+      static_cast<unsigned long long>(value),
+      static_cast<unsigned long>(w0),
+      static_cast<unsigned long>(w1),
+      static_cast<unsigned long>(w2),
+      static_cast<unsigned long>(w3));  // NOLINT(runtime/int)
+#else
+  uint32 w0 = *reinterpret_cast<uint32*>(mmap_register);
+  uint32 w1 = *(reinterpret_cast<uint32*>(mmap_register) + 1);
+  uint64 value = w0 + ((uint64)w1 << 32);
+  VLOG(5) << StringPrintf(
+      "Read: offset = 0x%016llx, value: = 0x%016llx, w0=0x%08lx, w1=0x%08lx",
+      static_cast<unsigned long long>(offset),  // NOLINT(runtime/int)
+      static_cast<unsigned long long>(value),
+      static_cast<unsigned long>(w0),
+      static_cast<unsigned long>(w1));  // NOLINT(runtime/int)
+#endif
 
   return value;
 }

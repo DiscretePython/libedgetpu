@@ -329,7 +329,7 @@ std::unique_ptr<api::Driver> EdgeTpuDriverWrapper::MakeOpenedDriver(
 
   api::DriverOptionsBuilder driver_option_builder(flatbuffer_builder);
   driver_option_builder.add_public_key(empty_public_key);
-  driver_option_builder.add_verbosity(-1);
+  driver_option_builder.add_verbosity(10);
 
   parse_result = ParsePerformanceExpectationWithDefaultMax(
       device_type, options, &driver_option_builder);
